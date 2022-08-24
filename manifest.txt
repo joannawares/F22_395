@@ -1,3 +1,2 @@
-test.txt
 CDCNewCasesDates.csv
 1-IntroToRGgplot.Rmd
