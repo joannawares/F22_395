@@ -1,2 +1,3 @@
-CDCNewCasesDates.csv 
-1-IntroToRGgplot.Rmd
+CDCNewCases.csv
+CDCMonkeyPox.csv
+2_Linear_and_ExponentialwithNLS.Rmd
