@@ -1,7 +1,7 @@
 ---
 title: Linear and Exponential Models
 author: Joanna R. Wares
-date: "`r format(Sys.time(), '%d %B %Y')`" # be so careful with which quotes you are using
+date: Due September 16 at 11:59 PM
 output: pdf_document
 urlcolor: blue
 ---
