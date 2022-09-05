@@ -1,3 +1,2 @@
-CDCNewCases.csv
-CDCMonkeyPox.csv
-2_Linear_and_ExponentialwithNLS.Rmd
+3_SIR_FinalSize.Rmd
+
