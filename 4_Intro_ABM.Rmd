@@ -1,0 +1,51 @@
+---
+title: "Agent-Based Models in NetLogo"
+author: "Joanna R. Wares"
+date: Due October 14, 2022
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(ggrepel)
+library(deSolve)
+
+
+theme_set(theme_minimal())
+options(pillar.min_character_chars = 15)
+```
+
+Our goal now is to learn to program an agent-based model in NetLogo. You can build agent-based models on a ton of other platforms. NetLogo was created for ease of use, making it easy to connect the graphical user interface (GUI) with the code that you create to determine what happens with the different agents in the different spaces.
+
+Dr. Erin Bodine has created a workshop to teach the basics of NetLogo. I have uploaded that here as ABMProject.pdf. I have also uploaded a file called SIR_Model_-_COVID19.nlogo that was created by Dr. Paul Smaldino. You will need to download this file and open it in NetLogo.
+
+Here's what I want you to do:
+
+#. Read through the ABMProject.pdf workshop
+#. Open the SIR_Model_-_COVID19.nlogo file in NetLogo. Notice, there is the GUI in the front, and there is a tab for the code. 
+#. Create a file like Dr. Bodine's, but for the SIR NetLogo file. You don't have to reproduce the first page and half. Start with the creating variables section. Your language can mirror hers.
+
+What your pdf should contain:
+
+#. An explanation of all of the code in the SIR file, in the format that Dr. Bodine uses to explain her rabbit model.
+#. A flow diagram of the Go procedure.
+#. An explanation of how to create the plots in the GUI.
+#. Finally, a few questions at the end of the document that you could answer using this model. 
+
+Finally, extend the model to include vaccination.
+
+#. Set a vaccination proportion by adding a slider with an initial value of 0.5
+#. Randomly assign that proportion of people to be vaccinated
+#. Create a slider for a multiplier between 0 and 1 to set becoming infected if the person is vaccinated (so if the slider is 0.5, the person who is vaccinated who have 0.5 the likelihood of becoming infected as someone who isn't) with initial value of 0.5.
+#. Add a section to the pdf about how to include vaccination.
+#. Add a result section describing how increasing vaccination changes the output of the model.
+#. Add a section of the pdf describing how you would add vaccination the SIR differential equations model. Make a compartmental diagram and write out equations.
+
+You should turn in the pdf and the new .nlogo file.
+
+
+Feel free to use similar language as Dr. Bodine. The main point is to understand the program and to learn how to use it.
+
+To do this, you will need to look up what a lot of the syntax and wording of the NetLogo code. You can test it by changing the code in the NetLogo file and seeing if what you think should happen does happen when you change it. Documentation can be found here: [https://ccl.northwestern.edu/netlogo/docs/](https://ccl.northwestern.edu/netlogo/docs/) but it is also easier to just search a particular term with NetLogo next to it.
