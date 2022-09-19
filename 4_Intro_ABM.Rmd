@@ -19,7 +19,7 @@ options(pillar.min_character_chars = 15)
 
 Our goal now is to learn to program an agent-based model in NetLogo. You can build agent-based models on a ton of other platforms. NetLogo was created for ease of use, making it easy to connect the graphical user interface (GUI) with the code that you create to determine what happens with the different agents in the different spaces.
 
-Dr. Erin Bodine has created a workshop to teach the basics of NetLogo. I have uploaded that here as ABMProject.pdf. I have also uploaded a file called SIR_Model_-_COVID19.nlogo that was created by Dr. Paul Smaldino. You will need to download this file and open it in NetLogo.
+Dr. Erin Bodine has created a workshop to teach the basics of NetLogo. I have uploaded that here as ABMProject.pdf. I have also uploaded a file to Blackboard called SIR_Model_-_COVID19.nlogo that was created by Dr. Paul Smaldino. You will need to download this file and open it in NetLogo.
 
 Here's what I want you to do:
 
