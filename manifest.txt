@@ -4,6 +4,7 @@
 ABMProject.pdf
 5_HerdImmunity.Rmd
 SUPP4C_Mathbiosciences.csl
+SUPP4B_References.bib
 
 
 
