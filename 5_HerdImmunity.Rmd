@@ -1,0 +1,522 @@
+---
+title: "Herd Immunity"
+author: "Joanna R. Wares"
+date: Due November 11 at 11:59 PM
+output:
+ pdf_document: default
+bibliography: SUPP4B_References.bib
+csl: SUPP4C_mathbiosciences.csl
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(ggrepel)
+library(deSolve)
+library(lattice)
+```
+## Herd Immunity
+
+Before you begin this exercise, read  [https://theconversation.com/herd-immunity-wont-solve-americas-covid-19-problem-139724](https://theconversation.com/herd-immunity-wont-solve-americas-covid-19-problem-139724) [@wares_herd]
+
+The idea behind herd immunity comes from vaccination policy. Herd immunity describes the percentage of a population that needs to be immune to a disease so that if one person comes into the population with that disease, the disease won't spread in the community and cause an epidemic. Notice a major assumption here: 
+
+1. There is only one person in the population that is infectious with the disease when we determine the herd immunity threshold
+
+This will be important later as we study the needed percentage of people who are immune to stop an epidemic from occurring and to lower overall death rates than would occur naturally.
+
+During the first year of the COVID-19 pandemic, politicians and the general public began speaking of reaching "herd immunity" as a strategy for lowering death rates from COVID-19. Unfortunately, the only way for people to become immune at that time, was for people to become infected with SARS-CoV-2 (which is what epidemiologists were trying to prevent in the first place) because there was no vaccine. Let's explore these ideas more to fully understand the theory behind "herd immunity" and when it makes sense as a mitigation strategy.
+
+To do so, we will use a standard epidemiological model, that is a system of differential equations, called the S-I-R model. S-I-R stands for susceptible-infectious-recovered. With this model, we can approximate how many people in a population will become infected over time. Assuming death is proportional to the number of infections over time, we can draw conclusions from this model about how many people will die over time due to the disease. Since the S-I-R model is so simple, the approximation will give us a sense of the dynamics underlying the system but will not accurately represent true data. We will therefore use it for the purpose of understanding the dynamics without claiming we are making accurate numerical predictions.
+
+
+
+## S-I-R Model 
+Let's review Workshop 3:
+
+Our main goal is to predict how many people in the population (or the proportion of the population if we divide by the total population size) become infected with COVID-19 over the course of the epidemic. Since we assume that deaths are proportional to total infections, the goal of the exercise is to understand the ramifications of reaching herd immunity, and understanding in what circumstances, or from what interventions, the total number of infections (or deaths) is substantially reduced.
+
+To model infection dynamics, we will use the S-I-R model.
+
+Let's write down the most basic assumptions for an S-I-R model:
+
+#. Everyone in the simulated population is either Susceptible (S), Infectious (infectious) (I), or Removed (R), so we will have 3 dependent variables, and will need an initial condition for each.
+    a. We are not going to be concerned with age or co-morbidities or anything else except for if people are S, I, or R
+#. The population size is constant, $N$
+#. Transmission happens at rate $\beta$ and follows a mass-action law (see [https://www.maa.org/press/periodicals/loci/joma/the-sir-model-for-spread-of-disease-the-differential-equation-model](https://www.maa.org/press/periodicals/loci/joma/the-sir-model-for-spread-of-disease-the-differential-equation-model) @noauthor_sir_nodate for how this assumption is the same as ratio-dependence with a fixed population size). As infectious people come into contact with susceptible people, the susceptible people become infected with some likelihood. Both the contact rate and the likelihood of infection can change $\beta$
+    a. We assume that death is proportional to the number of total people that become infected over the course of the simulation
+#. People are infectious for a period of time $1/\gamma$ days on average. After they are no longer infectious, they are considered ``recovered'' and immune. At the time of this writing, we are still not certain if people that have been infected with COVID-19 become immune to re-infection and in fact, there have been cases of re-infection although they seem rare.
+
+
+## Differential Equations
+
+Over time, the disease spreads and people recover, and therefore the values of $S$, $I$, and $R$ change, so these are functions of time. To determine the number of people that are susceptible $S(t)$, infectious $I(t)$, or removed $R(t)$ over time, we need to simulate the following differential equations with specific initial conditions. 
+
+The standard S-I-R model is:
+
+\begin{align}
+\dfrac{dS}{dt} &= - \beta S I\\
+\dfrac{dI}{dt} &=  \beta S I - \gamma I\\
+\dfrac{dR}{dt} &= \gamma I
+\end{align}
+
+where $N = S+I+R$ is the fixed total number of people.
+
+To solve this system of equations, we will also need to know how many people begin as susceptible, infectious, or recovered/immune. So in our simulations we will have to set value for $S(0)$, $I(0)$, and $R(0)$.
+
+The first differential equation describes the rate at which people are becoming infectious and leaving the susceptible compartment. Notice that the first equation says that the rate of change of the size of the susceptible population is proportional to the product of the number of susceptible and the number of infectious people at any time. 
+
+The second equation describes the rate of change of the size of the infectious compartment. As more susceptible people become infected, they move from $S$ to $I$. 
+
+After some time, the infectious people are no longer infectious and become "recovered." They do so at a rate of $\gamma$. The third equation describes people leaving $I$ and entering $R$.
+
+## Solving ordinary differential equations
+
+We are going to approximate the solutions to our system of ordinary differential equations using the deSolve package. [https://cran.r-project.org/web/packages/deSolve/index.html](https://cran.r-project.org/web/packages/deSolve/index.html)
+
+The library has been included at the top of this file already, but if you were writing your own program, you would need to include this library yourself.
+
+We are going to use the `ode` function to solve our system. We first need to set the parameters into a vector with named values, set the initial values, set the times we want to return, and create the right hand side of the system (the vector of functions) to send to the `ode` function. We will walk through all of this. Here is another good example of how to do this: [https://cran.r-project.org/web/packages/deSolve/vignettes/deSolve.pdf](https://cran.r-project.org/web/packages/deSolve/vignettes/deSolve.pdf) @soetaert_package_nodate.
+
+
+To simulate these equations, we need to first set the parameters used in the model:
+#. Let's assume the total size of the population is one million (You could also decide to do everything in proportions here instead of numbers)
+#. Let's assume that once people contract the disease, they are infectious on average for 14 days. That means the exit rate from I to R occurs at a rate of $\gamma = 1/14$. Let's set these parameters:
+```{r cases-data, message=FALSE}
+# Population size 
+N <- 1e6 
+
+# Rate at which person stays in the infectious compartment (disease specific and tracing specific)
+gamma <- 1/14
+```
+
+The basic reproductive ratio of a disease describes how many secondary infections will occur due to one primary infection. We can estimate the basic reproductive ratio, $R_0$ as $\frac{\beta N}{\gamma}$ @van_den_driessche_reproduction_2017. Some people made early estimates for the $R_0$ for COVID-19 without interventions to be around 2.5. The delta variant and other later variants are suspected to have a much higher $R_0$ than this. 
+
+Let's estimate $\beta$ making the assumption that $R_0$ is 2.5 using the equation for $R_0$.
+
+```{r, warning=FALSE}
+beta <- 2.5/N*gamma
+beta
+```
+
+*Question: What is your $\beta$ value?*
+
+**Answser:**
+
+Let's  next set our parameter vector using the `c` function and naming the parameters into the vector `parameters` again. Put, $\beta$ and $\gamma$ into `parameters.`
+
+```{r, warning = FALSE}
+parameters <- c(gamma = gamma, beta = beta)
+```
+
+To investigate herd immunity, we want to think about a population where there is only one infectious person in a population. To begin with, we will assume that everyone is susceptible except for one infectious person. We will use initial conditions of $S=999,999$, $I=1$, $R=0$. Set the initial values into the vector `state.`
+
+
+```{r, warning = FALSE}
+state <- c(S=999999, 
+           I=1,
+           R=0)
+```
+
+We will simulate the equations from times 0 to 1000 with a timestep of $\frac{1}{2^4}$. Set the `times` vector.
+
+```{r, warning = FALSE}
+times <- seq(0, 1000, by = 1/2^4)
+```
+
+Setup the function `SIRModel` that contains the S-I-R differential equations. Put each right hand side equation of the differential equations system on a new line. Make sure to return all three differential equations, $dS$, $dI$, and $dR$.
+
+```{r, warning=FALSE}
+SIRModel <- function(t, state, parameters){
+  with(as.list(c(state, parameters)), {
+    # put the DEs here
+    dS <- -beta*S*I
+    dI <- beta*S*I - gamma*I
+    dR <- gamma*I
+    
+    # return the differential equation. This gets called by ode for step of the simulation 
+    list(c(dS, dI, dR))
+  }) # end the with statement
+}
+```
+
+Time to simulate the model. We will find approximate solutions for $S(t)$, $I(t)$, and $R(t)$ using the `ode` function and name the result SIROut. Then plot, as a line in red, the number of infectious people $I$ vs $t$ using `ggplot.` You might need to cast the results in SIROut as a dataframe to get this to work with ggplot.
+
+```{r, warning=FALSE}
+SIROut <- ode(y=state, times = times, func = SIRModel, parms = parameters)
+head(SIROut)
+ggplot(as.data.frame(SIROut), aes(x=time, y=I)) + geom_line(color="red", size=1)
+print(max(as.data.frame(SIROut)$R))
+```
+
+
+Finally, plot all three trajectories $S(t)$, $I(t)$, and $R(t)$ for $0 \le t \le 1000$ on the same plot. Color $I$ as red, $S$ as blue, and $R$ as green.
+
+```{r, warning = FALSE}
+as.data.frame(SIROut) %>% ggplot() + geom_line(aes(x=times, y=I), color="red", size=1) + geom_line(aes(x=times, y=S), color="blue", size=1) + geom_line(aes(x=times, y=R), color="green", size=1)
+```
+
+
+
+## CASE 1 - Everyone is Susceptible
+
+Let's call the base case above, CASE 1. In CASE 1, an infectious person enters a population where no one has been infected or vaccinated against infection, so that no one is immune or "recovered."
+
+*Question: Approximately how many people were infectious at the peak of the infection curve in CASE 1?*
+
+**Answser:** 
+
+*Question: Approximately what percentage of the total population is ever infected over 1000 days in CASE 1? How do you know? (Make sure you understand this before you do the rest of the exercise.)*
+
+**Answser:** 
+
+*Question: If this many people in a population were infected by the disease, would you consider this a good result?*
+
+**Answer:**
+
+
+### Herd Immunity
+
+## Introduction
+
+Usually, when we discuss herd immunity, it is in the context of a vaccine. Vaccines confer immunity against viruses without people having to get infected and/or sick. The main idea behind herd immunity is that if we vaccinate enough people in a population (the herd immunity threshold percentage) then if one person enters the population with the disease, it will not spread fast enough to cause an epidemic because most of the contacts that the infectious person makes with other people will be with people who are immune to the virus. Beyond just preventing people who are vaccinated from getting sick, when enough of the "herd" is immune, those who cannot get vaccinated are also safe and the most vulnerable people are protected. Here we assume that vaccines result in permanent immunity.
+
+Before there was a vaccine for COVID-19, some politicians and lay people were trying to follow a ``herd immunity'' strategy to lowering death rates from COVID-19. The idea behind this was that if enough people would get infected and then become immune, then we could protect the vulnerable people in the society from getting sick.  
+
+There were many problems with this idea. The main problem was there was no way to separate the vulnerable from the not vulnerable, and getting infected was what everyone was trying to avoid in the first place. Another issue was that the "herd immunity" threshold was very high, so that this so called strategy was pretty much just like doing nothing, since following it would result in almost everyone getting infected. Finally, even if the herd immunity threshold was reached during the pandemic, a significant proportion of those that had not already been infected would still get sick because there would be more than one infectious person in the population at the time that the threshold was reached. We will investigate these issues below.
+
+For many months during 2020 there was no vaccine for COVID. So we have to recognize that when people were talking about herd immunity, they were talking about people becoming immune AFTER getting infected. Many of these people became symptomatic and also many died. 
+
+Two assumptions that we will explore here are:
+
+#. Reaching herd immunity is a good thing and is an intervention for preventing illness and death. 
+#. Once we reach the herd immunity threshold, no more people will get sick.
+
+## Exercise 1 - Herd Immunity Percentages
+
+Let's first explore how large the herd immunity threshold (percentage of the population susceptible or removed) has to be to prevent an epidemic from occurring while keeping the parameters the same as in CASE 1. 
+
+## CASE 2 - Below Herd Immunity
+
+Change the initial conditions so that (30% minus 1) of the total population (1 million) is susceptible, 1 is infectious, and the rest are removed. In this case, we will consider the people who were initially removed as having previously been infected because we are thinking about pre-vaccine times. This would also be the case, though, if we were able to vaccinate the population before anyone entered who was infected.
+
+Set the new state variables
+```{r, warning = FALSE}
+
+```
+
+Now find the numerical solution to the equations over 1000 days and plot infectious function over time.
+```{r, warning = FALSE}
+
+```
+
+*Question: We started with 299,999 people susceptible. Explain what happened here and why you think it happened.*
+
+**Answser:** 
+
+
+Now, plot all three dependent variable functions together.
+```{r, warning = FALSE}
+
+```
+*Question: How many total people were infected here (assuming those that started recovered were infected at some point before the experiment)?*
+
+**Answser:**
+
+*Question: Was the total amount of people infected over the course of the epidemic different from CASE 1? If so, why? Make sure to really think about this.*
+
+**Answser:**
+
+
+
+## CASE 3 - Vary the intial amount of people recovered
+
+Now let's do the same exercise before but let's start with various different initial conditions.
+
+Vary the the initial amount of people that are susceptible from 9999 to 999,999 by 10,000 increments. Make a plot of the total ever infected (R at t=1000)  (vertical axis) versus the amount susceptible initially (x-axis). Keep initial I as 1 and initial R as what is left of N. (You can do this in a loop.)
+
+
+```{r, warning = FALSE}
+
+
+
+```
+
+*Question: Describe in words what this graphical representation shows. Explain the shape of the curve and why there is a trough.*
+
+**Answer:**
+
+Now make a plot of only those that became removed during the experiment (so subtract those initially removed).
+
+
+```{r, warning = FALSE}
+
+
+```
+
+*Question: Explain what you are seeing.*
+
+**Answer: **
+
+## Exercise 2 - Herd Immunity
+Herd immunity is defined as the percentage of people in a population that need to be immune to a disease so that if $\underline{one \ person}$ enters the population with the disease the non-immune people will be unlikely to get it and an epidemic will not occur.
+
+Let's try to find the herd immunity percentage threshold. One thing we can do is look at the infection rate differential equation.
+
+
+\begin{equation}
+\dfrac{dI}{dt} =  \beta S I - \gamma I
+\end{equation}
+
+And we also know that
+
+\begin{equation}
+\beta = \dfrac{R_0 \gamma}{N}
+\end{equation}
+
+Remember here we are assuming that no one in the population is infected yet except for one person. So we assume that $I=1$ and that the rest of the population is divided between $R$ and $S$. The herd immunity threshold is the smallest proportion of $R$ in the total population, $N$, that makes $\dfrac{dI}{dt} < 0$. We can think of this as the amount that needs to be immune, $R = N - S - 1$, to make the number of infectious people, $I$, decrease. We can also just ignore the one person infected, since $N$ is presumably large.
+
+*Question: What is the herd immunity threshold in terms of the parameters (don't plug in actual numbers yet just find a formula for $R$ in terms of $R_0$)? What is $S$ then (the herd immunity threshold for susceptible people)? Ignore the 1 person infected.*
+
+**Answser:** 
+
+*Question: What is the herd immunity threshold (actual number here) in terms the values of the parameters that we are using in CASE 1? Explain what this means in words. What proportions of the population need to be susceptible and immune for the epidemic to not occur?*
+
+**Answser:** 
+
+## CASE 1 - Testing the Herd Immunity Equation
+
+*Question: Using the plots above, explain how the results relate to the calculated herd immunity threshold with our current $\beta$ and $\gamma$.*
+
+**Answser:**
+
+*Question: Explain the mathematics behind herd immunity. Remember, these cases only make sense when there is a vaccine. We have assumed that only 1 person is infectious throughout these simulations and that there are a large number that have become immune in the past.*
+
+**Answser:**
+
+## Summary
+Write a summary about what you have learned about herd immunity here and how it relates to $R_0$ and therefore $\beta$ and $\gamma$. In particular, why do you think more people in CASE 1 became infected than the herd immunity threshold for $R$? We will explore this more in the following part of the exercise.
+
+**Answer**
+
+## Exercise 3 - Final Size of the Population that is Ever Infected
+
+During 2020, many people talked about herd immunity as a goal, even without a vaccine. They said, "if $x$ percent of the population gets infected and immune, then the rest of us will be safe." This is a bad idea. For one, we were trying to develop interventions so that people would not get infected. Having as a strategy for $x$ percent of the population to get infected did nothing to avoid these people getting sick. It was actually no strategy at all. Many of those people would get seriously ill or die, the exact thing we were trying to avoid. 
+
+Another reason that this was a bad idea was that even if the herd immunity threshold amount of people did become infected and immune, many more people would still get infected and sick. The reason for this is that during an active pandemic, you do not have one infectious person entering the population with everyone else susceptible or recovered when you reach the herd immunity threshold. You have MANY people infectious when the herd immunity threshold is reached. Therefore, many more infections will occur and $dI/dt$ will not be less than zero when the herd immunity threshold is reached. 
+
+*Question: Explain this last sentence in terms of the $dI/dt$ equation.*
+
+**Answer:**
+
+
+## Vaccine vs. No Vaccine
+
+The path to immunity is two-fold. One way to become immune is to get vaccinated. On this path, you move directly from $S$ to $R$. If there were a vaccine, and under the assumption that there wasn't a raging pandemic and that almost no one was infectious, then we could measure the herd immunity threshold either in terms of $S$ or $R$ because everyone would be one or the other (except for a very small amount of infectious people that we could discount). In this way, if we said the herd immunity threshold was $60\%$ $R$, we would know this meant that about $40\%$ were in $S$.
+
+Just a note here that this description and what follows rests on the assumption that immunity is permanent, which we know it isn't for SARS-CoV-2.
+
+The other path to herd immunity is for people to become infectious and then either die or become immune. Since there was no vaccine for COVID-19 for a long time and people were still discussing herd immunity, this is the case we will study now.
+
+On this path, you move from $S$ to $I$, where you remain for a while, and then to $R$. This confuses our description of herd immunity. We originally defined it as the percentage of people that need to be immune to stop one infectious person from starting a pandemic. But then we analyzed this as the proportion of people that need to be susceptible to make $\frac{dI}{dt} < 0$, assuming only one person was in $I$. 
+
+When we have people becoming immune by going through $I$, there is a lag in time before they enter $R$. 
+
+In the examples above, we saw that if we started with the number of people susceptible at or below the herd immunity threshold when we introduced one infectious person into the population, then the total number of infections would not increase by much and $\frac{dI}{dt} < 0$.
+
+But when we are talking about herd immunity without a vaccine with a raging pandemic, we will reach herd immunity while MANY people are infected and while they are still infecting others (infectious). 
+
+### Go back to CASE 1.
+
+*Question: For Case 1, how many people were infectious when we reached herd immunity levels of susceptible people? Use the `which.max()` or `min()` and `which()` together to help you figure this out (find the right index of the time when you have herd immunity). Save the amount of infectious people into a variable called herd_infectious1 and then print it out. Also save the index of when this occurs into herd_immunity_index.*
+
+Go back and look at the plots to try to understand what is happening.
+
+
+```{r  message=FALSE}
+
+
+```
+
+*Question: On which day of this simulation did we reach the herd immunity threshold of susceptible people?*
+
+```{r, warning = FALSE}
+
+```
+
+**Answer**
+
+Question: How many people would you expect to be recovered at this time?
+
+**Answer**
+
+*Question: How many were actually recovered at this time?*
+
+
+```{r, warning = FALSE}
+```
+
+
+**Answser:**
+
+*Question: Why do you think this is? Why is it so different from the herd immunity threshold for R*
+
+**Answser:** 
+
+
+Now find the maximum number of people infectious at any time and find the index of when this occurred. 
+
+```{r, warning = FALSE}
+```
+
+
+*Question: How does the max infection index relate to the index of when the number of susceptible people is at the herd immunity threshold? Why is this so here?*
+
+**Answser:**
+
+
+*Question: How many total people had been infected by the end of this simulation? Save this into a variable called final_infectious1 and then print it. Do this by using some R code not by just looking at it. You might need the `tail()` function.*
+
+
+
+```{r, warning = FALSE}
+```
+
+**Answer:**
+
+*Question: If reaching herd immunity meant no one else would get infected, how many total people should have been infected ever in the final count?* 
+
+**Answser:**
+
+
+*Question: Explain how reaching herd immunity during an active pandemic doesn't immediately stop infection numbers from growing.*
+
+**Answser:**
+
+
+*Question: What is your assessment about herd immunity as a way to prevent disease spread?*
+
+**Answser:**
+
+
+
+
+## Interventions
+
+Now let's think about "flattening the curve." Flattening the curve meant lowering the total number of people that became infectious over the entire pandemic. Our question is, what happens to the final size of the pandemic if we can change transmission rates by various interventions such as wearing masks, or isolating, interventions that reduce contact rates and reduce likelihood of transmission.
+
+In CASE 1, we found that $\beta = 1.785714*10^{-7}$. Now let's assume that we could reduce $\beta$ with some intervention, such as people wearing masks more frequently.
+
+*Question: Assuming $N$ and $\gamma$ stay the same, what range of values of $\beta$ will keep $R_0 > 1$?* (Recall that $R_0 = \frac{\beta N}{\gamma}$.)
+
+```{r, warning = FALSE}
+
+```
+
+**Answser:** 
+
+Let's choose $\beta$ so that $R_0 = 1.5$. We will assume that our interventions lowered $R_0$ to this value. Set $\beta$ here. 
+
+
+## Herd Immunity 
+
+Find the herd immunity susceptible threshold for these new parameters.
+
+
+```{r, warning = FALSE}
+
+```
+
+*Question: If there wasn't a raging pandemic, and only 1 person was entering the population infectious, how many people would you expect to be recovered at the herd immunity level?*
+
+**Answser:** 
+
+*Question: How does this relate to the herd immunity level for the higher $R_0$? Why do you think that is?*
+
+**Answser:**
+
+## Varying $R_0$
+
+Use ggplot to plot $R_0$ between 1 and 5 on the horizontal axis versus `herd_S,` the herd immunity threshold for susceptible people, on the vertical axis.
+
+```{r, warning = FALSE}
+
+```
+
+*Question: As $R_0$ increases, what happens to the proportion of people that must start out in the recovered state to avoid an epidemic?*
+
+**Answer:**
+
+
+## Final Size of the Epidemic
+
+If we assume that there is no vaccine and that the herd immunity threshold (for $S$) is reached during an active pandemic, how many people become infected by the end of the pandemic (assuming S-I-R dynamics)? To determine this, vary $\beta$ so that $R_0$ ranges between 1 and 5 by 1/2^4. For each value, run a simulation (in a loop) to determine the final size of the epidemic. Create a plot of $R_0$ on the horizontal axis and the final size of the epidemic on the vertical axis.
+
+
+
+```{r, warning = FALSE}
+
+
+```
+*Question: Explain this plot in words.*
+
+**Answer:**
+
+
+Next, make the same plot, except have the theoretical herd immunity threshold for $R$ on the horizontal axis. Also plot a straight line with slope 1 that would represent what we would expect the final infected numbers to be if herd immunity meant no one else got infected.
+
+```{r, warning = FALSE}
+
+
+```
+
+
+*Question: Does reaching herd immunity during an active pandemic stop the pandemic in the way that those who suggested we use it as an intervention think it will? What evidence do you have from the plot above for or against?*
+
+**Answer:**
+
+## Summary
+*Question: Write a new summary about what you have learned about herd immunity  and how it relates to $R_0$ and therefore $\beta$ and $\gamma$. In particular, how does intervening in the pandemic change the herd immunity threshold, and how does this herd immunity threshold relate to the final percentage of people in the population that become infected if there is no vaccine?*
+
+**Answer**
+
+*Question: Explain why even if the herd immunity threshold is reached through vaccination during an active, that the pandemic will still continue for some time so that the final amount of the people that become infected with COVID-19 will be greater than the herd immunity threshold. Why is this usually not the case with diseases for which we have vaccines?*
+
+**Answer**
+
+
+*Question: In terms of herd immunity, what do you think will happen if vaccines do not stop people from becoming infectious and transmitting COVID-19 or if the virus mutates and evades the vaccine?*
+
+**Answer**
+
+
+
+## Vaccination
+
+If we had a vaccine that could impart permanent immunity, what would happen if it was administered before the pandemic started? Plot the reduction in final infected numbers for various initial vaccination levels. Do this for diseases with $R_0$ values between 1 and 5.
+
+Do this by creating a matrix of values that contain the number of people that had ever been infected by t=1000. Vary $\beta$ between 1 and 5 by 2^(-4) and vary the initial number removed between 0 and N-10,000 by 10,000. You will need to determine how to make a nice visualization of this data. One easy option is to use `levelplot` from the lattice package. There are a bunch of other ways to do this to. Feel free to use whatever you like.
+
+We want a filled in plane which represents how many new infections there were for the different parameter and starting values. So you need to subtract off how many people started in the $R$ group.
+
+
+
+```{r, warning = FALSE}
+
+
+```
+
+
+*Question: Write a statement about vaccination and immunization. What strategies should public health officials employ to prevent diseases from entering their populations? Reference this visualization to explain your reasoning.*
+
+**Answer:**
+
+
+## Summary
+Write a summary about what you have learned about herd immunity during an active pandemic. How does the final size of the epidemic (the total percentage of people that become infected over time) relate to the herd immunity threshold if the herd immunity threshold is reached during an active pandemic? What happens to the final size if we can lower the infection rate through mitigating factors? 
+
+**Answer:**
+
+
+## References
+
+
